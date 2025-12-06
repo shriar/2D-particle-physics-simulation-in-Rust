@@ -1,4 +1,4 @@
-# Falling Particle Simulation
+# 2D particle physics simulation in Rust
 
 A simple 2D particle physics simulation in Rust using [macroquad](https://github.com/not-fl3/macroquad).
 

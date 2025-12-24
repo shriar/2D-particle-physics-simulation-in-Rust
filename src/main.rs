@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use macroquad::rand::gen_range;
 
 // === Constants ===
 const SIM_MIN_WIDTH: f32 = 20.0;
@@ -16,7 +17,6 @@ fn world_dimensions() -> Vec2 {
     Vec2::new(screen_width() / ppm, screen_height() / ppm)
 }
 
-#[allow(dead_code)]
 fn screen_to_world(screen_pos: Vec2) -> Vec2 {
     let ppm = pixels_per_meter();
     Vec2::new(screen_pos.x / ppm, (screen_height() - screen_pos.y) / ppm)
@@ -73,7 +73,14 @@ impl Boundary {
 
         for i in 0..4 {
             let next = (i + 1) % 4;
-            draw_line(corners[i].x, corners[i].y, corners[next].x, corners[next].y, 2.0, WHITE);
+            draw_line(
+                corners[i].x,
+                corners[i].y,
+                corners[next].x,
+                corners[next].y,
+                2.0,
+                WHITE,
+            );
         }
     }
 }
@@ -89,7 +96,13 @@ struct Particle {
 
 impl Particle {
     fn new(position: Vec2, velocity: Vec2, radius: f32, mass: f32, color: Color) -> Self {
-        Self { position, velocity, radius, mass, color }
+        Self {
+            position,
+            velocity,
+            radius,
+            mass,
+            color,
+        }
     }
 
     fn update(&mut self, physics: &Physics, dt: f32) {
@@ -181,14 +194,29 @@ async fn main() {
     let physics = Physics::default();
 
     let mut particles = vec![
-        Particle::new(Vec2::new(8.0, 0.0), Vec2::new(1.0, 40.0), 0.8, 10.0, WHITE),
-        Particle::new(Vec2::new(8.0, 9.0), Vec2::new(0.0, 0.0), 0.4, 2.0, WHITE),
+        Particle::new(Vec2::new(8.0, 0.0), Vec2::new(1.0, 40.0), 0.8, 10.0, RED),
+        Particle::new(Vec2::new(8.0, 9.0), Vec2::new(0.0, 0.0), 0.4, 2.0, BLUE),
     ];
 
     let mut accumulator = 0.0;
 
     loop {
         clear_background(BLACK);
+
+        // Spawn new particle on left mouse click
+        if is_mouse_button_pressed(MouseButton::Left) {
+            let mouse_pos = mouse_position();
+            let world_pos = screen_to_world(Vec2::new(mouse_pos.0, mouse_pos.1));
+            let radius = gen_range(0.2, 0.8);
+            let mass = radius * radius * 10.0; // Mass proportional to area
+            let color = Color::from_rgba(
+                gen_range(50, 255) as u8,
+                gen_range(50, 255) as u8,
+                gen_range(50, 255) as u8,
+                255,
+            );
+            particles.push(Particle::new(world_pos, Vec2::ZERO, radius, mass, color));
+        }
 
         accumulator += get_frame_time();
 
@@ -198,9 +226,13 @@ async fn main() {
                 p.update(&physics, TIME_STEP);
             }
 
-            // Particle-particle collisions
-            let (left, right) = particles.split_at_mut(1);
-            resolve_particle_collision(&mut left[0], &mut right[0], &physics);
+            // Particle-particle collisions (all pairs)
+            for i in 0..particles.len() {
+                for j in (i + 1)..particles.len() {
+                    let (left, right) = particles.split_at_mut(j);
+                    resolve_particle_collision(&mut left[i], &mut right[0], &physics);
+                }
+            }
 
             // Boundary collisions
             for p in &mut particles {

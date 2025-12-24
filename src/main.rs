@@ -32,6 +32,7 @@ struct Physics {
     gravity: f32,
     restitution: f32,
     friction: f32,
+    drag_coefficient: f32, // k in F_drag = -k * |v| * v
 }
 
 impl Default for Physics {
@@ -40,6 +41,7 @@ impl Default for Physics {
             gravity: -9.8,
             restitution: 0.7,
             friction: 0.99,
+            drag_coefficient: 0.1, // Adjust for stronger/weaker air resistance
         }
     }
 }
@@ -106,7 +108,18 @@ impl Particle {
     }
 
     fn update(&mut self, physics: &Physics, dt: f32) {
+        // Apply gravity
         self.velocity.y += physics.gravity * dt;
+
+        // Apply quadratic drag: F_drag = -k * |v| * v
+        // Acceleration from drag: a = F/m = -k * |v| * v / m
+        let speed = self.velocity.length();
+        if speed > 0.0 {
+            let drag_acceleration = physics.drag_coefficient * speed / self.mass;
+            let drag_force = self.velocity.normalize() * drag_acceleration * dt;
+            self.velocity -= drag_force;
+        }
+
         self.position += self.velocity * dt;
     }
 
